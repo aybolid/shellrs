@@ -2,7 +2,9 @@ use super::{Command, CommandsRegistry};
 
 #[derive(Debug)]
 pub struct ExternalCommand {
+    /// The name of the command.
     name: String,
+    /// Full path of the command.
     path: String,
 }
 

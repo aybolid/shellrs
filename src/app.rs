@@ -14,6 +14,7 @@ impl REPL {
         Self {
             stdout: std::io::stdout(),
             stdin: std::io::stdin(),
+
             cmd_registry: CommandsRegistry::default(),
         }
     }
