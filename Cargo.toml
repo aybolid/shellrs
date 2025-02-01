@@ -1,0 +1,9 @@
+[package]
+name = "shellrs"
+version = "0.1.0"
+authors = ["me"]
+edition = "2021"
+rust-version = "1.80"
+
+[dependencies]
+is_executable = "1.0.4"
