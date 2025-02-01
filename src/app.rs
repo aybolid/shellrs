@@ -24,10 +24,10 @@ impl REPL {
             print!("$ ");
             self.stdout.flush().unwrap();
 
-            let mut input = String::new();
-            self.stdin.read_line(&mut input).unwrap();
+            let mut input_buffer = String::new();
+            self.stdin.read_line(&mut input_buffer).unwrap();
 
-            if let Err(err) = self.eval(&input) {
+            if let Err(err) = self.eval(&input_buffer) {
                 eprintln!("{}", err);
             }
         }

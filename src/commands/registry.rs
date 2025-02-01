@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use is_executable::IsExecutable;
 
-use super::{Command, EchoCommand, ExitCommand, ExternalCommand, TypeCommand};
+use super::{AllCommand, Command, EchoCommand, ExitCommand, ExternalCommand, TypeCommand};
 
 pub struct CommandsRegistry {
     builtin: HashMap<String, Box<dyn Command>>,
@@ -17,6 +17,24 @@ impl CommandsRegistry {
             builtin: HashMap::new(),
             external: HashMap::new(),
         }
+    }
+
+    /// Returns a tuple of two vectors containing the names of all registered builtin and external commands.
+    /// `(builtin_names, external_names)`
+    pub fn get_all_registered_names(&self) -> (Vec<String>, Vec<String>) {
+        let builtin_names = self
+            .builtin
+            .keys()
+            .map(|k| k.to_string())
+            .collect::<Vec<_>>();
+
+        let external_names = self
+            .external
+            .keys()
+            .map(|k| k.to_string())
+            .collect::<Vec<_>>();
+
+        (builtin_names, external_names)
     }
 
     /// Returns a reference to the `Command` with the given name if it exists.
@@ -76,6 +94,7 @@ impl Default for CommandsRegistry {
         registry.register_builtin(Box::new(ExitCommand));
         registry.register_builtin(Box::new(EchoCommand));
         registry.register_builtin(Box::new(TypeCommand));
+        registry.register_builtin(Box::new(AllCommand));
 
         registry.register_external();
 
