@@ -2,7 +2,9 @@ use std::collections::HashMap;
 
 use is_executable::IsExecutable;
 
-use super::{AllCommand, Command, EchoCommand, ExitCommand, ExternalCommand, TypeCommand};
+use super::{
+    AllCommand, Command, EchoCommand, ExitCommand, ExternalCommand, PwdCommand, TypeCommand,
+};
 
 pub struct CommandsRegistry {
     builtin: HashMap<String, Box<dyn Command>>,
@@ -86,15 +88,25 @@ impl CommandsRegistry {
     }
 }
 
+macro_rules! register_builtins {
+    ($registry:expr, $( $cmd:expr ),* ) => {
+        $( $registry.register_builtin(Box::new($cmd)); )*
+    };
+}
+
 impl Default for CommandsRegistry {
     /// Creates a new instance of the `CommandsRegistry` struct and loads builtin and external commands.
     fn default() -> Self {
         let mut registry = Self::new();
 
-        registry.register_builtin(Box::new(ExitCommand));
-        registry.register_builtin(Box::new(EchoCommand));
-        registry.register_builtin(Box::new(TypeCommand));
-        registry.register_builtin(Box::new(AllCommand));
+        register_builtins!(
+            registry,
+            ExitCommand,
+            EchoCommand,
+            TypeCommand,
+            AllCommand,
+            PwdCommand
+        );
 
         registry.register_external();
 

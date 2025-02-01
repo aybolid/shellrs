@@ -24,7 +24,7 @@ impl Shell {
     /// Runs the shell REPL (Read-Eval-Print-Loop).
     pub fn run_repl(&mut self) {
         loop {
-            print!("$ ");
+            print!("> ");
             self.stdout.flush().unwrap();
 
             let mut input_buffer = String::new();
