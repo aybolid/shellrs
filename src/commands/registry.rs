@@ -2,12 +2,18 @@ use std::collections::HashMap;
 
 use is_executable::IsExecutable;
 
+use crate::commands::CdCommand;
+
 use super::{
     AllCommand, Command, EchoCommand, ExitCommand, ExternalCommand, PwdCommand, TypeCommand,
 };
 
 pub struct CommandsRegistry {
+    /// Registry of builtin commands.
+    /// The key is the command name and the value is the command itself.
     builtin: HashMap<String, Box<dyn Command>>,
+    /// Registry of external commands.
+    /// The key is the command name and the value is the command itself.
     external: HashMap<String, Box<dyn Command>>,
 }
 
@@ -72,6 +78,7 @@ impl CommandsRegistry {
                             Ok(name) => name,
                             Err(_) => continue,
                         };
+
                         if self.external.contains_key(&name) {
                             continue;
                         }
@@ -105,7 +112,8 @@ impl Default for CommandsRegistry {
             EchoCommand,
             TypeCommand,
             AllCommand,
-            PwdCommand
+            PwdCommand,
+            CdCommand
         );
 
         registry.register_external();

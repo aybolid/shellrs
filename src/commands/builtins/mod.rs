@@ -1,10 +1,12 @@
 mod all;
+mod cd;
 mod echo;
 mod exit;
 mod pwd;
 mod typ;
 
 pub use all::AllCommand;
+pub use cd::CdCommand;
 pub use echo::EchoCommand;
 pub use exit::ExitCommand;
 pub use pwd::PwdCommand;

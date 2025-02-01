@@ -24,6 +24,10 @@ impl Shell {
     /// Runs the shell REPL (Read-Eval-Print-Loop).
     pub fn run_repl(&mut self) {
         loop {
+            println!(
+                "\n\x1b[1;32m{}\x1b[0m", // bold, green
+                std::env::current_dir().unwrap().display()
+            );
             print!("> ");
             self.stdout.flush().unwrap();
 
