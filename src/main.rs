@@ -2,6 +2,6 @@ mod app;
 mod commands;
 
 fn main() {
-    let mut repl = app::REPL::new();
-    repl.run();
+    let mut shell = app::Shell::new();
+    shell.run_repl();
 }

@@ -2,14 +2,16 @@ use std::io::Write;
 
 use crate::commands::CommandsRegistry;
 
-pub struct REPL {
+pub struct Shell {
     stdout: std::io::Stdout,
     stdin: std::io::Stdin,
 
+    /// Registry of all registered commands (builtin and external).
     cmd_registry: CommandsRegistry,
 }
 
-impl REPL {
+impl Shell {
+    /// Creates a new instance of the `Shell` struct.
     pub fn new() -> Self {
         Self {
             stdout: std::io::stdout(),
@@ -19,7 +21,8 @@ impl REPL {
         }
     }
 
-    pub fn run(&mut self) {
+    /// Runs the shell REPL (Read-Eval-Print-Loop).
+    pub fn run_repl(&mut self) {
         loop {
             print!("$ ");
             self.stdout.flush().unwrap();
@@ -33,6 +36,7 @@ impl REPL {
         }
     }
 
+    /// Evaluates the given input string.
     fn eval(&mut self, input: &str) -> Result<(), String> {
         if input.trim().is_empty() {
             return Ok(());
