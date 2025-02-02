@@ -19,12 +19,11 @@ where
     /// Returns the name of the command.
     fn get_name(&self) -> String;
 
-    /// Returns a message describing the type of the command.
-    /// Used by the `type` builtin command.
-    fn get_type_message(&self) -> String;
+    /// Returns a message describing the help of the command.
+    fn get_help_message(&self, reg: &CommandsRegistry) -> Result<String, ShellError>;
 
     #[cfg(debug_assertions)]
     fn debug_print_message(&self) -> String {
-        format!("{:?}\n\t{}", self, self.get_type_message())
+        format!("{:?}\n", self)
     }
 }

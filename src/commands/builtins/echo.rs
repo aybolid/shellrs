@@ -15,7 +15,12 @@ impl Command for EchoCommand {
         "echo".to_string()
     }
 
-    fn get_type_message(&self) -> String {
-        format!("{} is a shell builtin", self.get_name())
+    fn get_help_message(&self, _: &CommandsRegistry) -> Result<String, ShellError> {
+        let mut help_message = String::new();
+
+        help_message.push_str(format!("usage: {} <message>\n", self.get_name()).as_str());
+        help_message.push_str("prints the specified message to the standard output.");
+
+        Ok(help_message)
     }
 }

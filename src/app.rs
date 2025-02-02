@@ -61,10 +61,7 @@ impl Shell {
     /// Reads multiline input from the user. A line ending with an unescaped backslash (`\`)
     /// indicates that the command continues on the next line.
     fn read_multiline_input(&mut self) -> String {
-        println!(
-            "\n\x1b[1;32m{}\x1b[0m", // bold, green
-            std::env::current_dir().unwrap().display()
-        );
+        self.print_shell_header();
         print!("> ");
         self.stdout.flush().unwrap();
 
@@ -118,6 +115,14 @@ impl Shell {
         }
 
         Ok(())
+    }
+
+    /// Prints the shell header. What did you expect?
+    fn print_shell_header(&self) {
+        println!(
+            "\n\x1b[1;32m{}\x1b[0m", // bold, green
+            std::env::current_dir().unwrap().display()
+        );
     }
 
     /// Parse a shell-like input string into a vector of tokens.
@@ -180,6 +185,7 @@ impl Shell {
         tokens
     }
 
+    /// Handles the result of the `eval` function.
     fn handle_eval_result(&self, result: Result<(), ShellError>) {
         match result {
             Ok(_) => {}

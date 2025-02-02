@@ -19,7 +19,7 @@ impl ExternalCommand {
 impl Command for ExternalCommand {
     fn run(&self, args: Vec<&str>, _: &CommandsRegistry) -> Result<(), ShellError> {
         dprintln!("spawning external command: {}", self.debug_print_message());
-        let mut child = std::process::Command::new(&self.name)
+        let mut child = std::process::Command::new(&self.path)
             .args(args)
             .spawn()
             .map_err(|err| ShellError::CommandExecutionFail(err.to_string()))?;
@@ -35,7 +35,19 @@ impl Command for ExternalCommand {
         self.name.clone()
     }
 
-    fn get_type_message(&self) -> String {
-        format!("{} is {}", self.get_name(), self.path)
+    fn get_help_message(&self, reg: &CommandsRegistry) -> Result<String, ShellError> {
+        dprintln!(
+            "trying to run man for external command: {}",
+            self.get_name()
+        );
+
+        if let Some(man_cmd) = reg.get_command("man") {
+            man_cmd.run(vec![&self.get_name()], reg)?;
+            return Ok("".to_string());
+        } else {
+            return Err(ShellError::CommandExecutionFail(
+                "no man command found. can't display help message for external command".to_string(),
+            ));
+        }
     }
 }

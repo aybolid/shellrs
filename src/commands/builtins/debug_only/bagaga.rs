@@ -28,10 +28,11 @@ impl Command for BagagaCommand {
         "bagaga".to_string()
     }
 
-    fn get_type_message(&self) -> String {
-        format!(
-            "{} is a... hm. type data seems to be encrypted",
-            self.get_name()
-        )
+    fn get_help_message(&self, _: &CommandsRegistry) -> Result<String, ShellError> {
+        let mut help_message = String::new();
+
+        help_message.push_str("bagaga wont help you.");
+
+        Ok(help_message)
     }
 }

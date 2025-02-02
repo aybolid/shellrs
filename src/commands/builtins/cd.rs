@@ -27,7 +27,15 @@ impl Command for CdCommand {
         "cd".to_string()
     }
 
-    fn get_type_message(&self) -> String {
-        format!("{} is a shell builtin", self.get_name())
+    fn get_help_message(&self, _: &CommandsRegistry) -> Result<String, ShellError> {
+        let mut help_message = String::new();
+
+        help_message.push_str(format!("usage: {} <directory>\n", self.get_name()).as_str());
+        help_message
+            .push_str("changes the current working directory to the specified directory.\n");
+        help_message
+            .push_str("if no directory is specified, the HOME environment variable is used.");
+
+        Ok(help_message)
     }
 }

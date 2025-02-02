@@ -18,7 +18,12 @@ impl Command for PwdCommand {
         "pwd".to_string()
     }
 
-    fn get_type_message(&self) -> String {
-        format!("{} is a shell builtin", self.get_name())
+    fn get_help_message(&self, _: &CommandsRegistry) -> Result<String, ShellError> {
+        let mut help_message = String::new();
+
+        help_message.push_str(format!("usage: {}\n", self.get_name()).as_str());
+        help_message.push_str("prints the current working directory.");
+
+        Ok(help_message)
     }
 }

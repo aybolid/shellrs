@@ -5,7 +5,7 @@ use is_executable::IsExecutable;
 use crate::dprintln;
 
 use super::{
-    CdCommand, Command, EchoCommand, ExitCommand, ExternalCommand, PwdCommand, TypeCommand,
+    CdCommand, Command, EchoCommand, ExitCommand, ExternalCommand, HelpCommand, PwdCommand,
 };
 
 pub struct CommandsRegistry {
@@ -90,13 +90,13 @@ impl CommandsRegistry {
                         }
                     }
                 } else {
-                    dprintln!("failed to read external commands from {}", dir);
+                    eprintln!("failed to read external commands from {}", dir);
                 }
 
                 dprintln!("loaded {} external commands", count);
             }
         } else {
-            dprintln!("PATH environment variable not set");
+            eprintln!("PATH environment variable not set. can't load external commands");
         }
     }
 
@@ -142,9 +142,9 @@ impl Default for CommandsRegistry {
             registry,
             ExitCommand,
             EchoCommand,
-            TypeCommand,
             PwdCommand,
-            CdCommand
+            CdCommand,
+            HelpCommand
         );
 
         registry.register_external();
