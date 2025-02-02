@@ -1,19 +1,14 @@
 use crate::{
-    app::{ShellError, ShellOutput},
-    commands::{Command, CommandsRegistry},
+    app::{Shell, ShellError},
+    commands::Command,
 };
 
 #[derive(Debug)]
 pub struct EchoCommand;
 
 impl Command for EchoCommand {
-    fn run(
-        &self,
-        out: &mut ShellOutput,
-        args: Vec<&str>,
-        _: &CommandsRegistry,
-    ) -> Result<(), ShellError> {
-        out.writeln(&args.join(" "));
+    fn run(&self, args: Vec<&str>, shell: &mut Shell) -> Result<(), ShellError> {
+        shell.stdout.writeln(&args.join(" "));
         Ok(())
     }
 
@@ -21,11 +16,7 @@ impl Command for EchoCommand {
         "echo".to_string()
     }
 
-    fn get_help_message(
-        &self,
-        _: &mut ShellOutput,
-        _: &CommandsRegistry,
-    ) -> Result<String, ShellError> {
+    fn get_help_message(&self, _: &mut Shell) -> Result<String, ShellError> {
         let mut help_message = String::new();
 
         help_message.push_str(format!("usage: {} <message>\n", self.get_name()).as_str());

@@ -21,14 +21,23 @@ pub enum ShellError {
 }
 
 /// The output type of the shell.
-/// Can be either a standard output or a file.
+/// Can be either a standard output, a standard error or a file.
 pub enum ShellOutput {
     Stdout(std::io::StdoutLock<'static>),
+    Stderr(std::io::StderrLock<'static>),
     #[allow(dead_code)]
     File(std::fs::File),
 }
 
 impl ShellOutput {
+    pub fn stdout() -> Self {
+        ShellOutput::Stdout(std::io::stdout().lock())
+    }
+
+    pub fn stderr() -> Self {
+        ShellOutput::Stderr(std::io::stderr().lock())
+    }
+
     /// Writes a string to the output.
     pub fn writeln(&mut self, s: &str) {
         writeln!(self, "{}", s).expect("should be able to write");
@@ -42,13 +51,8 @@ impl ShellOutput {
                 Ok(Stdio::from(file_clone))
             }
             ShellOutput::Stdout(_) => Ok(Stdio::inherit()),
+            ShellOutput::Stderr(_) => Ok(Stdio::inherit()),
         }
-    }
-}
-
-impl Default for ShellOutput {
-    fn default() -> Self {
-        ShellOutput::Stdout(std::io::stdout().lock())
     }
 }
 
@@ -56,6 +60,7 @@ impl std::io::Write for ShellOutput {
     fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
         match self {
             ShellOutput::Stdout(ref mut writer) => writer.write(buf),
+            ShellOutput::Stderr(ref mut writer) => writer.write(buf),
             ShellOutput::File(ref mut writer) => writer.write(buf),
         }
     }
@@ -63,26 +68,31 @@ impl std::io::Write for ShellOutput {
     fn flush(&mut self) -> std::io::Result<()> {
         match self {
             ShellOutput::Stdout(ref mut writer) => writer.flush(),
+            ShellOutput::Stderr(ref mut writer) => writer.flush(),
             ShellOutput::File(ref mut writer) => writer.flush(),
         }
     }
 }
 
 pub struct Shell {
-    out: ShellOutput,
+    pub stdout: ShellOutput,
+    pub stderr: ShellOutput,
+
     stdin: std::io::Stdin,
 
     input_buffer: String,
 
     /// Registry of all registered commands (builtin and external).
-    cmd_registry: CommandsRegistry,
+    pub cmd_registry: CommandsRegistry,
 }
 
 impl Shell {
     /// Creates a new instance of the `Shell` struct.
     pub fn new() -> Self {
         Self {
-            out: ShellOutput::default(),
+            stdout: ShellOutput::stdout(),
+            stderr: ShellOutput::stderr(),
+
             stdin: std::io::stdin(),
 
             input_buffer: String::new(),
@@ -111,7 +121,7 @@ impl Shell {
     fn read_multiline_input(&mut self) -> String {
         self.print_shell_header();
         print!("> ");
-        self.out.flush().unwrap();
+        self.stdout.flush().unwrap();
 
         let mut complete_input = String::new();
 
@@ -127,7 +137,7 @@ impl Shell {
                 complete_input.push(' ');
 
                 print!("> ");
-                self.out.flush().unwrap();
+                self.stdout.flush().unwrap();
             } else {
                 complete_input.push_str(&line);
                 break;
@@ -154,13 +164,16 @@ impl Shell {
         dprintln!("command name: {}", command_name);
         dprintln!("args: {:?}", args);
 
-        if let Some(command) = self.cmd_registry.get_command(command_name) {
-            command.run(&mut self.out, args, &self.cmd_registry)?;
-        } else {
-            return Err(ShellError::CommandNotFound {
-                command_name: command_name.to_string(),
-            });
-        }
+        let command = match self.cmd_registry.get_command(command_name) {
+            Some(command) => command.clone(),
+            None => {
+                return Err(ShellError::CommandNotFound {
+                    command_name: command_name.to_string(),
+                });
+            }
+        };
+
+        command.run(args, self)?;
 
         Ok(())
     }
@@ -239,7 +252,7 @@ impl Shell {
             Ok(_) => {}
             Err(err) => match err {
                 ShellError::CommandNotFound { command_name } => {
-                    self.out
+                    self.stderr
                         .writeln(&format!("{}: command not found", command_name));
 
                     let mut levenshtein_threshold = 2;
@@ -252,7 +265,7 @@ impl Shell {
                         &self.cmd_registry.registered_names,
                         levenshtein_threshold,
                     ) {
-                        self.out
+                        self.stderr
                             .writeln(&format!("did you mean \"{}\"?", closest_name));
                     }
                 }
@@ -260,7 +273,7 @@ impl Shell {
                     dprintln_err!("empty input error");
                 }
                 _ => {
-                    self.out.writeln(&format!("{}", err));
+                    self.stderr.writeln(&format!("{}", err));
                 }
             },
         }

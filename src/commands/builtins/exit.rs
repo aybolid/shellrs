@@ -1,6 +1,6 @@
 use crate::{
-    app::{ShellError, ShellOutput},
-    commands::{Command, CommandsRegistry},
+    app::{Shell, ShellError},
+    commands::Command,
     dprintln,
 };
 
@@ -8,12 +8,7 @@ use crate::{
 pub struct ExitCommand;
 
 impl Command for ExitCommand {
-    fn run(
-        &self,
-        _: &mut ShellOutput,
-        args: Vec<&str>,
-        _: &CommandsRegistry,
-    ) -> Result<(), ShellError> {
+    fn run(&self, args: Vec<&str>, _: &mut Shell) -> Result<(), ShellError> {
         let status_code_parse = match args.get(0) {
             Some(arg) => arg.parse::<i32>(),
             None => Ok(0),
@@ -34,11 +29,7 @@ impl Command for ExitCommand {
         "exit".to_string()
     }
 
-    fn get_help_message(
-        &self,
-        _: &mut ShellOutput,
-        _: &CommandsRegistry,
-    ) -> Result<String, ShellError> {
+    fn get_help_message(&self, _: &mut Shell) -> Result<String, ShellError> {
         let mut help_message = String::new();
 
         help_message.push_str(format!("usage: {} <status code>\n", self.get_name()).as_str());

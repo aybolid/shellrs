@@ -1,9 +1,9 @@
 use crate::{
-    app::{ShellError, ShellOutput},
+    app::{Shell, ShellError},
     dprintln,
 };
 
-use super::{Command, CommandsRegistry};
+use super::Command;
 
 #[derive(Debug)]
 pub struct ExternalCommand {
@@ -20,21 +20,23 @@ impl ExternalCommand {
 }
 
 impl Command for ExternalCommand {
-    fn run(
-        &self,
-        out: &mut ShellOutput,
-        args: Vec<&str>,
-        _: &CommandsRegistry,
-    ) -> Result<(), ShellError> {
+    fn run(&self, args: Vec<&str>, shell: &mut Shell) -> Result<(), ShellError> {
         dprintln!("spawning external command: {}", self.debug_print_message());
 
-        let stdout_stdio = out
+        let stdout_stdio = shell
+            .stdout
+            .as_stdio()
+            .map_err(|err| ShellError::CommandExecutionFail(err.to_string()))?;
+
+        let stderr_stdio = shell
+            .stderr
             .as_stdio()
             .map_err(|err| ShellError::CommandExecutionFail(err.to_string()))?;
 
         let mut child = std::process::Command::new(&self.path)
             .args(args)
             .stdout(stdout_stdio)
+            .stderr(stderr_stdio)
             .spawn()
             .map_err(|err| ShellError::CommandExecutionFail(err.to_string()))?;
 
@@ -49,18 +51,15 @@ impl Command for ExternalCommand {
         self.name.clone()
     }
 
-    fn get_help_message(
-        &self,
-        out: &mut ShellOutput,
-        reg: &CommandsRegistry,
-    ) -> Result<String, ShellError> {
+    fn get_help_message(&self, shell: &mut Shell) -> Result<String, ShellError> {
         dprintln!(
             "trying to run man for external command: {}",
             self.get_name()
         );
 
-        if let Some(man_cmd) = reg.get_command("man") {
-            man_cmd.run(out, vec![&self.get_name()], reg)?;
+        let man_cmd = shell.cmd_registry.get_command("man");
+        if let Some(man_cmd) = man_cmd {
+            man_cmd.clone().run(vec![&self.get_name()], shell)?;
             return Ok("".to_string());
         } else {
             return Err(ShellError::CommandExecutionFail(

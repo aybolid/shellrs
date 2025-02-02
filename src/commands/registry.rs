@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, sync::Arc};
 
 use is_executable::IsExecutable;
 
@@ -11,10 +11,10 @@ use super::{
 pub struct CommandsRegistry {
     /// Registry of builtin commands.
     /// The key is the command name and the value is the command itself.
-    builtin: HashMap<String, Box<dyn Command>>,
+    builtin: HashMap<String, Arc<dyn Command>>,
     /// Registry of external commands.
     /// The key is the command name and the value is the command itself.
-    external: HashMap<String, Box<dyn Command>>,
+    external: HashMap<String, Arc<dyn Command>>,
 
     /// List of registered command names.
     pub registered_names: Vec<String>,
@@ -34,13 +34,13 @@ impl CommandsRegistry {
 
     /// Returns a reference to the `Command` with the given name if it exists.
     /// First checks builtin commands, then external commands.
-    pub fn get_command(&self, name: &str) -> Option<&Box<dyn Command>> {
+    pub fn get_command(&self, name: &str) -> Option<&Arc<dyn Command>> {
         self.builtin.get(name).or_else(|| self.external.get(name))
     }
 
     /// Registers a new `Command`.
     /// Panics if a command with the same name already exists.
-    pub fn register_builtin(&mut self, command: Box<dyn Command>) {
+    pub fn register_builtin(&mut self, command: Arc<dyn Command>) {
         let name = command.get_name();
 
         assert!(
@@ -82,7 +82,7 @@ impl CommandsRegistry {
                         let external_command = ExternalCommand::new(name.clone(), executable_path);
 
                         self.external
-                            .insert(external_command.get_name(), Box::new(external_command));
+                            .insert(external_command.get_name(), Arc::new(external_command));
 
                         #[cfg(debug_assertions)]
                         {
@@ -115,7 +115,7 @@ impl CommandsRegistry {
 
 macro_rules! register_builtins {
     ($registry:expr, $( $cmd:expr ),* ) => {
-        $( $registry.register_builtin(Box::new($cmd)); )*
+        $( $registry.register_builtin(Arc::new($cmd)); )*
     };
 }
 
