@@ -1,11 +1,15 @@
-use crate::commands::{Command, CommandsRegistry};
+use crate::{
+    app::ShellError,
+    commands::{Command, CommandsRegistry},
+};
 
 #[derive(Debug)]
 pub struct PwdCommand;
 
 impl Command for PwdCommand {
-    fn run(&self, _: Vec<&str>, _: &CommandsRegistry) -> Result<(), String> {
-        let pwd = std::env::current_dir().map_err(|err| err.to_string())?;
+    fn run(&self, _: Vec<&str>, _: &CommandsRegistry) -> Result<(), ShellError> {
+        let pwd = std::env::current_dir()
+            .map_err(|err| ShellError::CommandExecutionFail(err.to_string()))?;
         println!("{}", pwd.display());
         Ok(())
     }

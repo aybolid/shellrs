@@ -1,4 +1,5 @@
 use crate::{
+    app::ShellError,
     commands::{Command, CommandsRegistry},
     dprintln,
 };
@@ -7,7 +8,7 @@ use crate::{
 pub struct ExitCommand;
 
 impl Command for ExitCommand {
-    fn run(&self, args: Vec<&str>, _: &CommandsRegistry) -> Result<(), String> {
+    fn run(&self, args: Vec<&str>, _: &CommandsRegistry) -> Result<(), ShellError> {
         let status_code = match args.get(0) {
             Some(arg) => arg.parse::<i32>().unwrap_or(0),
             None => 0,

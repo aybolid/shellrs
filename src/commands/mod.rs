@@ -7,12 +7,14 @@ pub use builtins::*;
 mod external;
 pub use external::ExternalCommand;
 
+use crate::app::ShellError;
+
 pub trait Command
 where
     Self: std::fmt::Debug,
 {
     /// Executes the command with the given arguments.
-    fn run(&self, args: Vec<&str>, reg: &CommandsRegistry) -> Result<(), String>;
+    fn run(&self, args: Vec<&str>, reg: &CommandsRegistry) -> Result<(), ShellError>;
 
     /// Returns the name of the command.
     fn get_name(&self) -> String;

@@ -1,12 +1,17 @@
-use crate::commands::{Command, CommandsRegistry};
+use crate::{
+    app::ShellError,
+    commands::{Command, CommandsRegistry},
+};
 
 #[derive(Debug)]
 pub struct DebugPrintCommand;
 
 impl Command for DebugPrintCommand {
-    fn run(&self, args: Vec<&str>, reg: &CommandsRegistry) -> Result<(), String> {
+    fn run(&self, args: Vec<&str>, reg: &CommandsRegistry) -> Result<(), ShellError> {
         if args.is_empty() {
-            return Err("example usage: dprint <command name>".to_string());
+            return Err(ShellError::CommandExecutionFail(
+                "example usage: dprint <command name>".to_string(),
+            ));
         }
 
         let command_name = args[0];
@@ -14,7 +19,7 @@ impl Command for DebugPrintCommand {
         if let Some(command) = reg.get_command(command_name) {
             println!("{}", command.debug_print_message());
         } else {
-            return Err(format!("{}: not found", command_name));
+            println!("{}: not found", command_name);
         }
 
         Ok(())

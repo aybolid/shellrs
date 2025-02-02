@@ -1,4 +1,5 @@
 use crate::{
+    app::ShellError,
     commands::{Command, CommandsRegistry},
     dprintln,
 };
@@ -7,7 +8,7 @@ use crate::{
 pub struct CdCommand;
 
 impl Command for CdCommand {
-    fn run(&self, args: Vec<&str>, _: &CommandsRegistry) -> Result<(), String> {
+    fn run(&self, args: Vec<&str>, _: &CommandsRegistry) -> Result<(), ShellError> {
         let target_dir = match args.get(0) {
             Some(arg) => arg.to_string(),
             None => std::env::var("HOME").unwrap_or_else(|_| "/".to_string()),
@@ -16,7 +17,8 @@ impl Command for CdCommand {
         let target_dir = std::path::Path::new(&target_dir);
         dprintln!("changing directory to {:?}", target_dir);
 
-        std::env::set_current_dir(target_dir).map_err(|err| err.to_string())?;
+        std::env::set_current_dir(target_dir)
+            .map_err(|err| ShellError::CommandExecutionFail(err.to_string()))?;
 
         Ok(())
     }

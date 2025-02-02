@@ -1,4 +1,4 @@
-use crate::dprintln;
+use crate::{app::ShellError, dprintln};
 
 use super::{Command, CommandsRegistry};
 
@@ -17,14 +17,16 @@ impl ExternalCommand {
 }
 
 impl Command for ExternalCommand {
-    fn run(&self, args: Vec<&str>, _: &CommandsRegistry) -> Result<(), String> {
+    fn run(&self, args: Vec<&str>, _: &CommandsRegistry) -> Result<(), ShellError> {
         dprintln!("spawning external command: {}", self.debug_print_message());
         let mut child = std::process::Command::new(&self.name)
             .args(args)
             .spawn()
-            .map_err(|err| err.to_string())?;
+            .map_err(|err| ShellError::CommandExecutionFail(err.to_string()))?;
 
-        child.wait().map_err(|err| err.to_string())?;
+        child
+            .wait()
+            .map_err(|err| ShellError::CommandExecutionFail(err.to_string()))?;
 
         Ok(())
     }

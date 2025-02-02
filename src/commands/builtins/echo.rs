@@ -1,10 +1,13 @@
-use crate::commands::{Command, CommandsRegistry};
+use crate::{
+    app::ShellError,
+    commands::{Command, CommandsRegistry},
+};
 
 #[derive(Debug)]
 pub struct EchoCommand;
 
 impl Command for EchoCommand {
-    fn run(&self, args: Vec<&str>, _: &CommandsRegistry) -> Result<(), String> {
+    fn run(&self, args: Vec<&str>, _: &CommandsRegistry) -> Result<(), ShellError> {
         Ok(println!("{}", args.join(" ")))
     }
 

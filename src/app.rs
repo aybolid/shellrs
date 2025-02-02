@@ -1,6 +1,18 @@
 use std::io::Write;
 
-use crate::{commands::CommandsRegistry, dprintln};
+use thiserror::Error;
+
+use crate::{commands::CommandsRegistry, dprintln, dprintln_err};
+
+#[derive(Debug, Error)]
+pub enum ShellError {
+    #[error("empty input")]
+    EmptyInput,
+    #[error("{0}: command not found")]
+    CommandNotFound(String),
+    #[error("{0}")]
+    CommandExecutionFail(String),
+}
 
 pub struct Shell {
     stdout: std::io::Stdout,
@@ -36,17 +48,22 @@ impl Shell {
             self.stdin.read_line(&mut input_buffer).unwrap();
 
             if let Err(err) = self.eval(&input_buffer) {
-                eprintln!("{}", err);
+                match err {
+                    ShellError::EmptyInput => {
+                        dprintln_err!("empty input error");
+                    }
+                    _ => eprintln!("{}", err),
+                }
             }
         }
     }
 
     /// Evaluates the given input string.
-    fn eval(&mut self, input: &str) -> Result<(), String> {
+    fn eval(&mut self, input: &str) -> Result<(), ShellError> {
         dprintln!("eval: {:?}", input);
 
         if input.trim().is_empty() {
-            return Ok(());
+            return Err(ShellError::EmptyInput);
         }
 
         let tokens: Vec<&str> = input.split_whitespace().collect();
@@ -59,7 +76,7 @@ impl Shell {
         if let Some(command) = self.cmd_registry.get_command(command_name) {
             command.run(args.to_vec(), &self.cmd_registry)?;
         } else {
-            return Err(format!("{}: command not found", command_name));
+            return Err(ShellError::CommandNotFound(command_name.to_string()));
         }
 
         Ok(())
