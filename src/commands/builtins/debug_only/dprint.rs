@@ -35,7 +35,7 @@ impl Command for DebugPrintCommand {
         let mut help_message = String::new();
 
         help_message.push_str(format!("usage: {} <command name>\n", self.get_name()).as_str());
-        help_message.push_str("debug prints the type and help message of the specified command.");
+        help_message.push_str("debug prints help message of the specified command.");
 
         Ok(help_message)
     }

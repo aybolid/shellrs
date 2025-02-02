@@ -38,6 +38,11 @@ impl ShellOutput {
         ShellOutput::Stderr(std::io::stderr().lock())
     }
 
+    #[allow(dead_code)]
+    pub fn file(path: String) -> Self {
+        ShellOutput::File(std::fs::File::create(path).unwrap())
+    }
+
     /// Writes a string to the output.
     pub fn writeln(&mut self, s: &str) {
         writeln!(self, "{}", s).expect("should be able to write");
