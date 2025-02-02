@@ -1,4 +1,4 @@
-/// print! macro but exluded in release builds.
+/// print! macro but excluded in release builds.
 #[macro_export]
 macro_rules! dprint {
     ($($arg:tt)*) => {
@@ -7,7 +7,7 @@ macro_rules! dprint {
     };
 }
 
-/// println! macro but exluded in release builds.
+/// println! macro but excluded in release builds.
 #[macro_export]
 macro_rules! dprintln {
     ($($arg:tt)*) => {
@@ -16,11 +16,11 @@ macro_rules! dprintln {
     };
 }
 
-/// eprintln! macro but exluded in release builds.
+/// eprintln! macro but excluded in release builds.
 #[macro_export]
 macro_rules! dprintln_err {
     ($($arg:tt)*) => {
         #[cfg(debug_assertions)]
-        eprintln!("\x1b[2m{}\x1b[0m", format!($($arg)*));
+        eprintln!("\x1b[2m\x1b[31m{}\x1b[0m", format!($($arg)*));
     };
 }

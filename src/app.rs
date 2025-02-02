@@ -1,5 +1,6 @@
 use std::io::Write;
 
+use levenshtein::Levenshtein;
 use thiserror::Error;
 
 use crate::{commands::CommandsRegistry, dprintln, dprintln_err};
@@ -8,9 +9,9 @@ use crate::{commands::CommandsRegistry, dprintln, dprintln_err};
 pub enum ShellError {
     #[error("empty input")]
     EmptyInput,
-    #[error("{0}: command not found")]
-    CommandNotFound(String),
-    #[error("{0}")]
+    #[error("{command_name}: command not found")]
+    CommandNotFound { command_name: String },
+    #[error("\x1b[31m{0}\x1b[0m")] // color red
     CommandExecutionFail(String),
 }
 
@@ -52,6 +53,17 @@ impl Shell {
                     ShellError::EmptyInput => {
                         dprintln_err!("empty input error");
                     }
+                    ShellError::CommandNotFound { command_name } => {
+                        eprintln!("{}: command not found", command_name);
+
+                        if let Some(closest_name) = Levenshtein::get_closest_with_threshold(
+                            &command_name,
+                            &self.cmd_registry.registered_names,
+                            2,
+                        ) {
+                            eprintln!("did you mean \"{}\"?", closest_name);
+                        };
+                    }
                     _ => eprintln!("{}", err),
                 }
             }
@@ -76,7 +88,9 @@ impl Shell {
         if let Some(command) = self.cmd_registry.get_command(command_name) {
             command.run(args.to_vec(), &self.cmd_registry)?;
         } else {
-            return Err(ShellError::CommandNotFound(command_name.to_string()));
+            return Err(ShellError::CommandNotFound {
+                command_name: command_name.to_string(),
+            });
         }
 
         Ok(())

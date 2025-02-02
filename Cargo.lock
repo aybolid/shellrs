@@ -12,6 +12,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "levenshtein"
+version = "0.1.0"
+
+[[package]]
 name = "proc-macro2"
 version = "1.0.93"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -34,6 +38,7 @@ name = "shellrs"
 version = "0.1.0"
 dependencies = [
  "is_executable",
+ "levenshtein",
  "thiserror",
 ]
 
