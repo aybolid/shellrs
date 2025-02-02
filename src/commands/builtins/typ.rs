@@ -20,7 +20,9 @@ impl Command for TypeCommand {
         if let Some(command) = reg.get_command(command_name) {
             println!("{}", command.get_type_message());
         } else {
-            println!("{}: not found", command_name);
+            return Err(ShellError::CommandNotFound {
+                command_name: command_name.to_string(),
+            });
         }
 
         Ok(())

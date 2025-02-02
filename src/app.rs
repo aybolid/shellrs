@@ -7,11 +7,16 @@ use crate::{commands::CommandsRegistry, dprintln, dprintln_err};
 
 #[derive(Debug, Error)]
 pub enum ShellError {
+    /// The input was empty. Not really an error btw.
     #[error("empty input")]
     EmptyInput,
+    /// The command with the given name was not found.
+    /// This error will trigger a suggestion for the closest command name using Levenshtein distance.
     #[error("{command_name}: command not found")]
     CommandNotFound { command_name: String },
-    #[error("\x1b[31m{0}\x1b[0m")] // color red
+    /// The command execution failed.
+    /// The message will be formatted as an error message (red color).
+    #[error("\x1b[31m{0}\x1b[0m")]
     CommandExecutionFail(String),
 }
 
@@ -45,13 +50,6 @@ impl Shell {
     pub fn run_repl(&mut self) {
         dprintln!("starting repl");
         loop {
-            println!(
-                "\n\x1b[1;32m{}\x1b[0m", // bold, green
-                std::env::current_dir().unwrap().display()
-            );
-            print!("> ");
-            self.stdout.flush().unwrap();
-
             self.input_buffer = self.read_multiline_input();
 
             if let Err(err) = self.eval() {
@@ -81,6 +79,13 @@ impl Shell {
     /// Reads multiline input from the user. A line ending with an unescaped backslash (`\`)
     /// indicates that the command continues on the next line.
     fn read_multiline_input(&mut self) -> String {
+        println!(
+            "\n\x1b[1;32m{}\x1b[0m", // bold, green
+            std::env::current_dir().unwrap().display()
+        );
+        print!("> ");
+        self.stdout.flush().unwrap();
+
         let mut complete_input = String::new();
 
         loop {
@@ -101,6 +106,7 @@ impl Shell {
                 break;
             }
         }
+
         complete_input
     }
 
