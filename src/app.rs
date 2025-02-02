@@ -1,4 +1,8 @@
-use std::{io::Write, process::Stdio};
+use std::{
+    fs::File,
+    io::{self, Write},
+    process::Stdio,
+};
 
 use levenshtein::Levenshtein;
 use thiserror::Error;
@@ -23,24 +27,24 @@ pub enum ShellError {
 /// The output type of the shell.
 /// Can be either a standard output, a standard error or a file.
 pub enum ShellOutput {
-    Stdout(std::io::StdoutLock<'static>),
-    Stderr(std::io::StderrLock<'static>),
+    Stdout(io::StdoutLock<'static>),
+    Stderr(io::StderrLock<'static>),
     #[allow(dead_code)]
-    File(std::fs::File),
+    File(File),
 }
 
 impl ShellOutput {
     pub fn stdout() -> Self {
-        ShellOutput::Stdout(std::io::stdout().lock())
+        ShellOutput::Stdout(io::stdout().lock())
     }
 
     pub fn stderr() -> Self {
-        ShellOutput::Stderr(std::io::stderr().lock())
+        ShellOutput::Stderr(io::stderr().lock())
     }
 
     #[allow(dead_code)]
     pub fn file(path: String) -> Self {
-        ShellOutput::File(std::fs::File::create(path).unwrap())
+        ShellOutput::File(File::create(path).unwrap())
     }
 
     /// Writes a string to the output.
@@ -49,20 +53,16 @@ impl ShellOutput {
     }
 
     /// Converts the `ShellOutput` into a `Stdio`.
-    pub fn as_stdio(&mut self) -> std::io::Result<Stdio> {
+    pub fn as_stdio(&mut self) -> io::Result<Stdio> {
         match self {
-            ShellOutput::File(ref mut file) => {
-                let file_clone = file.try_clone()?;
-                Ok(Stdio::from(file_clone))
-            }
-            ShellOutput::Stdout(_) => Ok(Stdio::inherit()),
-            ShellOutput::Stderr(_) => Ok(Stdio::inherit()),
+            ShellOutput::File(ref mut file) => Ok(Stdio::from(file.try_clone()?)),
+            ShellOutput::Stdout(_) | ShellOutput::Stderr(_) => Ok(Stdio::inherit()),
         }
     }
 }
 
-impl std::io::Write for ShellOutput {
-    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+impl io::Write for ShellOutput {
+    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
         match self {
             ShellOutput::Stdout(ref mut writer) => writer.write(buf),
             ShellOutput::Stderr(ref mut writer) => writer.write(buf),
@@ -70,7 +70,7 @@ impl std::io::Write for ShellOutput {
         }
     }
 
-    fn flush(&mut self) -> std::io::Result<()> {
+    fn flush(&mut self) -> io::Result<()> {
         match self {
             ShellOutput::Stdout(ref mut writer) => writer.flush(),
             ShellOutput::Stderr(ref mut writer) => writer.flush(),
@@ -82,13 +82,10 @@ impl std::io::Write for ShellOutput {
 pub struct Shell {
     pub stdout: ShellOutput,
     pub stderr: ShellOutput,
-
-    stdin: std::io::Stdin,
-
-    input_buffer: String,
-
     /// Registry of all registered commands (builtin and external).
     pub cmd_registry: CommandsRegistry,
+    stdin: io::Stdin,
+    input_buffer: String,
 }
 
 impl Shell {
@@ -97,12 +94,9 @@ impl Shell {
         Self {
             stdout: ShellOutput::stdout(),
             stderr: ShellOutput::stderr(),
-
-            stdin: std::io::stdin(),
-
-            input_buffer: String::new(),
-
             cmd_registry: CommandsRegistry::default(),
+            stdin: io::stdin(),
+            input_buffer: String::new(),
         }
     }
 
@@ -116,35 +110,30 @@ impl Shell {
             self.input_buffer = self.read_multiline_input();
             let eval_result = self.eval();
             self.handle_eval_result(eval_result);
-
             self.input_buffer.clear();
         }
     }
 
-    /// Reads multiline input from the user. A line ending with an unescaped backslash (`\`)
-    /// indicates that the command continues on the next line.
+    /// Reads multiline input from the user.
+    ///
+    /// A line ending with an unescaped backslash (`\`) indicates that the command continues on the next line.
     fn read_multiline_input(&mut self) -> String {
         self.print_shell_header();
-        print!("> ");
-        self.stdout.flush().unwrap();
-
         let mut complete_input = String::new();
 
         loop {
+            print!("> ");
+            self.stdout.flush().unwrap();
+
             let mut line = String::new();
             self.stdin.read_line(&mut line).unwrap();
-
-            let line = line.trim_end_matches('\n').to_string();
+            let line = line.trim_end_matches('\n');
 
             if line.ends_with('\\') && !line.ends_with("\\\\") {
-                let line_without_bs = line.trim_end_matches('\\');
-                complete_input.push_str(line_without_bs);
+                complete_input.push_str(line.trim_end_matches('\\'));
                 complete_input.push(' ');
-
-                print!("> ");
-                self.stdout.flush().unwrap();
             } else {
-                complete_input.push_str(&line);
+                complete_input.push_str(line);
                 break;
             }
         }
@@ -152,10 +141,9 @@ impl Shell {
         complete_input
     }
 
-    /// Evaluates the given input string.
+    /// Evaluates the current input stored in `self.input_buffer`.
     fn eval(&mut self) -> Result<(), ShellError> {
         dprintln!("eval: {:?}", self.input_buffer);
-
         let tokens = self.parse_shell_input();
         dprintln!("parsed tokens: {:?}", tokens);
 
@@ -163,72 +151,126 @@ impl Shell {
             return Err(ShellError::EmptyInput);
         }
 
-        let command_name = &tokens[0];
-        let args: Vec<&str> = tokens[1..].iter().map(|s| s.as_str()).collect();
+        let (command_tokens, stdout_redirect, stderr_redirect) =
+            self.process_redirections(tokens)?;
+
+        if command_tokens.is_empty() {
+            return Err(ShellError::EmptyInput);
+        }
+
+        let command_name = &command_tokens[0];
+        let args: Vec<&str> = command_tokens[1..].iter().map(|s| s.as_str()).collect();
 
         dprintln!("command name: {}", command_name);
         dprintln!("args: {:?}", args);
+        dprintln!("stdout redirection: {:?}", stdout_redirect);
+        dprintln!("stderr redirection: {:?}", stderr_redirect);
 
-        let command = match self.cmd_registry.get_command(command_name) {
-            Some(command) => command.clone(),
-            None => {
-                return Err(ShellError::CommandNotFound {
-                    command_name: command_name.to_string(),
-                });
-            }
-        };
+        let command = self
+            .cmd_registry
+            .get_command(command_name)
+            .cloned()
+            .ok_or_else(|| ShellError::CommandNotFound {
+                command_name: command_name.clone(),
+            })?;
 
-        command.run(args, self)?;
+        // swap out stdout and stderr if necessary.
+        let original_stdout = stdout_redirect
+            .map(|file| std::mem::replace(&mut self.stdout, ShellOutput::file(file)));
+        let original_stderr = stderr_redirect
+            .map(|file| std::mem::replace(&mut self.stderr, ShellOutput::file(file)));
 
-        Ok(())
+        // run the command.
+        let result = command.run(args, self);
+
+        // restore original outputs.
+        if let Some(stdout) = original_stdout {
+            self.stdout = stdout;
+        }
+        if let Some(stderr) = original_stderr {
+            self.stderr = stderr;
+        }
+
+        result
     }
 
-    /// Prints the shell header. What did you expect?
-    fn print_shell_header(&self) {
-        println!(
-            "\n\x1b[1;32m{}\x1b[0m", // bold, green
-            std::env::current_dir().unwrap().display()
-        );
-    }
-
-    /// Parse a shell-like input string into a vector of tokens.
+    /// Processes tokens to separate redirection tokens from command tokens.
     ///
-    /// This function handles:
-    /// - Whitespace-separated tokens.
-    /// - Single (`'`) and double (`"`) quoted segments that allow spaces.
-    /// - Escaped characters via a backslash (`\`).
+    /// Returns a tuple of:
+    /// - command tokens,
+    /// - optional stdout redirection file,
+    /// - optional stderr redirection file.
+    fn process_redirections(
+        &self,
+        tokens: Vec<String>,
+    ) -> Result<(Vec<String>, Option<String>, Option<String>), ShellError> {
+        let mut command_tokens = Vec::new();
+        let mut stdout_redirect = None;
+        let mut stderr_redirect = None;
+
+        let mut iter = tokens.into_iter();
+        while let Some(token) = iter.next() {
+            match token.as_str() {
+                "&>" => {
+                    let file = iter.next().ok_or_else(|| {
+                        ShellError::CommandExecutionFail(
+                            "no file specified for output redirection".to_string(),
+                        )
+                    })?;
+                    stdout_redirect = Some(file.clone());
+                    stderr_redirect = Some(file);
+                }
+                ">" | "1>" => {
+                    stdout_redirect = Some(iter.next().ok_or_else(|| {
+                        ShellError::CommandExecutionFail(
+                            "no file specified for output redirection".to_string(),
+                        )
+                    })?);
+                }
+                "2>" => {
+                    stderr_redirect = Some(iter.next().ok_or_else(|| {
+                        ShellError::CommandExecutionFail(
+                            "no file specified for error output redirection".to_string(),
+                        )
+                    })?);
+                }
+                _ => command_tokens.push(token),
+            }
+        }
+
+        Ok((command_tokens, stdout_redirect, stderr_redirect))
+    }
+
+    /// Parses the shell input into tokens.
+    ///
+    /// Supports whitespace separation, quoting (single and double), and escaping.
     fn parse_shell_input(&self) -> Vec<String> {
         let mut tokens = Vec::new();
         let mut current = String::new();
 
-        // Flags to track whether we're inside single or double quotes.
         let mut in_single_quote = false;
         let mut in_double_quote = false;
 
         let mut chars = self.input_buffer.chars().peekable();
         while let Some(c) = chars.next() {
             match c {
-                // toggle single-quote state (only when not inside double quotes)
                 '\'' if !in_double_quote => {
                     in_single_quote = !in_single_quote;
                 }
-                // toggle double-quote state (only when not inside single quotes)
                 '"' if !in_single_quote => {
                     in_double_quote = !in_double_quote;
                 }
-                // handle escape character: add the next character literally.
                 '\\' => {
                     if let Some(escaped_char) = chars.next() {
                         current.push(escaped_char);
                     }
                 }
-                // if a space or tab is encountered outside quotes, finish the current token.
                 ' ' | '\t' if !in_single_quote && !in_double_quote => {
                     if !current.is_empty() {
                         tokens.push(current.clone());
                         current.clear();
                     }
-                    // skip any additional consecutive whitespaces.
+                    // Skip any additional consecutive whitespace.
                     while let Some(&next_char) = chars.peek() {
                         if next_char == ' ' || next_char == '\t' {
                             chars.next();
@@ -237,7 +279,6 @@ impl Shell {
                         }
                     }
                 }
-                // all other characters are added to the current token.
                 _ => {
                     current.push(c);
                 }
@@ -247,31 +288,33 @@ impl Shell {
         if !current.is_empty() {
             tokens.push(current);
         }
-
         tokens
     }
 
-    /// Handles the result of the `eval` function.
+    /// Prints the shell header (current working directory in bold green).
+    fn print_shell_header(&self) {
+        if let Ok(path) = std::env::current_dir() {
+            println!("\n\x1b[1;32m{}\x1b[0m", path.display());
+        }
+    }
+
+    /// Handles the result of evaluating a command.
     fn handle_eval_result(&mut self, result: Result<(), ShellError>) {
-        match result {
-            Ok(_) => {}
-            Err(err) => match err {
+        if let Err(err) = result {
+            match err {
                 ShellError::CommandNotFound { command_name } => {
                     self.stderr
                         .writeln(&format!("{}: command not found", command_name));
 
-                    let mut levenshtein_threshold = 2;
-                    if command_name.len() < 4 {
-                        levenshtein_threshold = 1;
-                    }
+                    let levenshtein_threshold = if command_name.len() < 4 { 1 } else { 2 };
 
-                    if let Some(closest_name) = Levenshtein::get_closest_with_threshold(
+                    if let Some(closest) = Levenshtein::get_closest_with_threshold(
                         &command_name,
                         &self.cmd_registry.registered_names,
                         levenshtein_threshold,
                     ) {
                         self.stderr
-                            .writeln(&format!("did you mean \"{}\"?", closest_name));
+                            .writeln(&format!("did you mean \"{}\"?", closest));
                     }
                 }
                 ShellError::EmptyInput => {
@@ -280,7 +323,7 @@ impl Shell {
                 _ => {
                     self.stderr.writeln(&format!("{}", err));
                 }
-            },
+            }
         }
     }
 }
