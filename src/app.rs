@@ -51,26 +51,8 @@ impl Shell {
         dprintln!("starting repl");
         loop {
             self.input_buffer = self.read_multiline_input();
-
-            if let Err(err) = self.eval() {
-                match err {
-                    ShellError::EmptyInput => {
-                        dprintln_err!("empty input error");
-                    }
-                    ShellError::CommandNotFound { command_name } => {
-                        eprintln!("{}: command not found", command_name);
-
-                        if let Some(closest_name) = Levenshtein::get_closest_with_threshold(
-                            &command_name,
-                            &self.cmd_registry.registered_names,
-                            2,
-                        ) {
-                            eprintln!("did you mean \"{}\"?", closest_name);
-                        }
-                    }
-                    _ => eprintln!("{}", err),
-                }
-            }
+            let eval_result = self.eval();
+            self.handle_eval_result(eval_result);
 
             self.input_buffer.clear();
         }
@@ -196,5 +178,33 @@ impl Shell {
         }
 
         tokens
+    }
+
+    fn handle_eval_result(&self, result: Result<(), ShellError>) {
+        match result {
+            Ok(_) => {}
+            Err(err) => match err {
+                ShellError::CommandNotFound { command_name } => {
+                    eprintln!("{}: command not found", command_name);
+
+                    let mut levenshtein_threshold = 2;
+                    if command_name.len() < 4 {
+                        levenshtein_threshold = 1;
+                    }
+
+                    if let Some(closest_name) = Levenshtein::get_closest_with_threshold(
+                        &command_name,
+                        &self.cmd_registry.registered_names,
+                        levenshtein_threshold,
+                    ) {
+                        eprintln!("did you mean \"{}\"?", closest_name);
+                    }
+                }
+                ShellError::EmptyInput => {
+                    dprintln_err!("empty input error");
+                }
+                _ => eprintln!("{}", err),
+            },
+        }
     }
 }
