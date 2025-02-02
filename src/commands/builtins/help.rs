@@ -1,5 +1,5 @@
 use crate::{
-    app::ShellError,
+    app::{ShellError, ShellOutput},
     commands::{Command, CommandsRegistry},
 };
 
@@ -7,7 +7,12 @@ use crate::{
 pub struct HelpCommand;
 
 impl Command for HelpCommand {
-    fn run(&self, args: Vec<&str>, reg: &CommandsRegistry) -> Result<(), ShellError> {
+    fn run(
+        &self,
+        out: &mut ShellOutput,
+        args: Vec<&str>,
+        reg: &CommandsRegistry,
+    ) -> Result<(), ShellError> {
         let command_name = match args.get(0) {
             Some(arg) => arg,
             None => {
@@ -18,8 +23,8 @@ impl Command for HelpCommand {
         };
 
         if let Some(command) = reg.get_command(command_name) {
-            let message = command.get_help_message(reg)?;
-            println!("{}", message);
+            let message = &command.get_help_message(out, reg)?;
+            out.writeln(message);
         } else {
             return Err(ShellError::CommandNotFound {
                 command_name: command_name.to_string(),
@@ -33,7 +38,11 @@ impl Command for HelpCommand {
         "help".to_string()
     }
 
-    fn get_help_message(&self, _: &CommandsRegistry) -> Result<String, ShellError> {
+    fn get_help_message(
+        &self,
+        _: &mut ShellOutput,
+        _: &CommandsRegistry,
+    ) -> Result<String, ShellError> {
         let mut help_message = String::new();
 
         help_message.push_str(format!("usage: {} <command name>\n", self.get_name()).as_str());

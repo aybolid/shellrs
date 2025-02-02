@@ -1,5 +1,5 @@
 use crate::{
-    app::ShellError,
+    app::{ShellError, ShellOutput},
     commands::{Command, CommandsRegistry},
     dprintln,
 };
@@ -8,7 +8,12 @@ use crate::{
 pub struct CdCommand;
 
 impl Command for CdCommand {
-    fn run(&self, args: Vec<&str>, _: &CommandsRegistry) -> Result<(), ShellError> {
+    fn run(
+        &self,
+        _: &mut ShellOutput,
+        args: Vec<&str>,
+        _: &CommandsRegistry,
+    ) -> Result<(), ShellError> {
         let target_dir = match args.get(0) {
             Some(arg) => arg.to_string(),
             None => std::env::var("HOME").unwrap_or_else(|_| "/".to_string()),
@@ -27,7 +32,11 @@ impl Command for CdCommand {
         "cd".to_string()
     }
 
-    fn get_help_message(&self, _: &CommandsRegistry) -> Result<String, ShellError> {
+    fn get_help_message(
+        &self,
+        _: &mut ShellOutput,
+        _: &CommandsRegistry,
+    ) -> Result<String, ShellError> {
         let mut help_message = String::new();
 
         help_message.push_str(format!("usage: {} <directory>\n", self.get_name()).as_str());

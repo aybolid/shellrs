@@ -20,8 +20,45 @@ pub enum ShellError {
     CommandExecutionFail(String),
 }
 
+/// The output type of the shell.
+/// Can be either a standard output or a file.
+pub enum ShellOutput {
+    Stdout(std::io::StdoutLock<'static>),
+    #[allow(dead_code)]
+    File(std::fs::File),
+}
+
+impl ShellOutput {
+    /// Writes a string to the output.
+    pub fn writeln(&mut self, s: &str) {
+        writeln!(self, "{}", s).expect("should be able to write");
+    }
+}
+
+impl Default for ShellOutput {
+    fn default() -> Self {
+        ShellOutput::Stdout(std::io::stdout().lock())
+    }
+}
+
+impl std::io::Write for ShellOutput {
+    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        match self {
+            ShellOutput::Stdout(ref mut writer) => writer.write(buf),
+            ShellOutput::File(ref mut writer) => writer.write(buf),
+        }
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        match self {
+            ShellOutput::Stdout(ref mut writer) => writer.flush(),
+            ShellOutput::File(ref mut writer) => writer.flush(),
+        }
+    }
+}
+
 pub struct Shell {
-    stdout: std::io::Stdout,
+    out: ShellOutput,
     stdin: std::io::Stdin,
 
     input_buffer: String,
@@ -34,7 +71,7 @@ impl Shell {
     /// Creates a new instance of the `Shell` struct.
     pub fn new() -> Self {
         Self {
-            stdout: std::io::stdout(),
+            out: ShellOutput::default(),
             stdin: std::io::stdin(),
 
             input_buffer: String::new(),
@@ -63,7 +100,7 @@ impl Shell {
     fn read_multiline_input(&mut self) -> String {
         self.print_shell_header();
         print!("> ");
-        self.stdout.flush().unwrap();
+        self.out.flush().unwrap();
 
         let mut complete_input = String::new();
 
@@ -79,7 +116,7 @@ impl Shell {
                 complete_input.push(' ');
 
                 print!("> ");
-                self.stdout.flush().unwrap();
+                self.out.flush().unwrap();
             } else {
                 complete_input.push_str(&line);
                 break;
@@ -107,7 +144,7 @@ impl Shell {
         dprintln!("args: {:?}", args);
 
         if let Some(command) = self.cmd_registry.get_command(command_name) {
-            command.run(args, &self.cmd_registry)?;
+            command.run(&mut self.out, args, &self.cmd_registry)?;
         } else {
             return Err(ShellError::CommandNotFound {
                 command_name: command_name.to_string(),
@@ -186,12 +223,13 @@ impl Shell {
     }
 
     /// Handles the result of the `eval` function.
-    fn handle_eval_result(&self, result: Result<(), ShellError>) {
+    fn handle_eval_result(&mut self, result: Result<(), ShellError>) {
         match result {
             Ok(_) => {}
             Err(err) => match err {
                 ShellError::CommandNotFound { command_name } => {
-                    eprintln!("{}: command not found", command_name);
+                    self.out
+                        .writeln(&format!("{}: command not found", command_name));
 
                     let mut levenshtein_threshold = 2;
                     if command_name.len() < 4 {
@@ -203,13 +241,16 @@ impl Shell {
                         &self.cmd_registry.registered_names,
                         levenshtein_threshold,
                     ) {
-                        eprintln!("did you mean \"{}\"?", closest_name);
+                        self.out
+                            .writeln(&format!("did you mean \"{}\"?", closest_name));
                     }
                 }
                 ShellError::EmptyInput => {
                     dprintln_err!("empty input error");
                 }
-                _ => eprintln!("{}", err),
+                _ => {
+                    self.out.writeln(&format!("{}", err));
+                }
             },
         }
     }

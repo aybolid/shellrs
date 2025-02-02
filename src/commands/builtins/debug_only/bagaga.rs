@@ -1,7 +1,7 @@
 use rand::Rng;
 
 use crate::{
-    app::ShellError,
+    app::{ShellError, ShellOutput},
     commands::{Command, CommandsRegistry},
 };
 
@@ -16,11 +16,13 @@ const RESPONSES: [&str; 4] = [
 pub struct BagagaCommand;
 
 impl Command for BagagaCommand {
-    fn run(&self, _: Vec<&str>, _: &CommandsRegistry) -> Result<(), ShellError> {
-        println!(
-            "{}",
-            RESPONSES[rand::rng().random_range(0..RESPONSES.len())]
-        );
+    fn run(
+        &self,
+        out: &mut ShellOutput,
+        _: Vec<&str>,
+        _: &CommandsRegistry,
+    ) -> Result<(), ShellError> {
+        out.writeln(RESPONSES[rand::rng().random_range(0..RESPONSES.len())]);
         Ok(())
     }
 
@@ -28,7 +30,11 @@ impl Command for BagagaCommand {
         "bagaga".to_string()
     }
 
-    fn get_help_message(&self, _: &CommandsRegistry) -> Result<String, ShellError> {
+    fn get_help_message(
+        &self,
+        _: &mut ShellOutput,
+        _: &CommandsRegistry,
+    ) -> Result<String, ShellError> {
         let mut help_message = String::new();
 
         help_message.push_str("bagaga wont help you.");
