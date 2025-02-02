@@ -1,4 +1,7 @@
-use crate::commands::{Command, CommandsRegistry};
+use crate::{
+    commands::{Command, CommandsRegistry},
+    dprintln,
+};
 
 #[derive(Debug)]
 pub struct CdCommand;
@@ -11,6 +14,7 @@ impl Command for CdCommand {
         };
 
         let target_dir = std::path::Path::new(&target_dir);
+        dprintln!("changing directory to {:?}", target_dir);
 
         std::env::set_current_dir(target_dir).map_err(|err| err.to_string())?;
 

@@ -1,4 +1,7 @@
-use crate::commands::{Command, CommandsRegistry};
+use crate::{
+    commands::{Command, CommandsRegistry},
+    dprintln,
+};
 
 #[derive(Debug)]
 pub struct ExitCommand;
@@ -9,6 +12,7 @@ impl Command for ExitCommand {
             Some(arg) => arg.parse::<i32>().unwrap_or(0),
             None => 0,
         };
+        dprintln!("exiting with status code {}", status_code);
         std::process::exit(status_code);
     }
 

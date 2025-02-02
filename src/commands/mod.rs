@@ -21,7 +21,8 @@ where
     /// Used by the `type` builtin command.
     fn get_type_message(&self) -> String;
 
-    fn debug_print(&self) {
-        println!("{:?}", self);
+    #[cfg(debug_assertions)]
+    fn debug_print_message(&self) -> String {
+        format!("{:?}\n\t{}", self, self.get_type_message())
     }
 }

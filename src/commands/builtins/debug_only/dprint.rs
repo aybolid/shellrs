@@ -12,7 +12,7 @@ impl Command for DebugPrintCommand {
         let command_name = args[0];
 
         if let Some(command) = reg.get_command(command_name) {
-            command.debug_print();
+            println!("{}", command.debug_print_message());
         } else {
             return Err(format!("{}: not found", command_name));
         }

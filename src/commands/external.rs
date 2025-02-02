@@ -1,3 +1,5 @@
+use crate::dprintln;
+
 use super::{Command, CommandsRegistry};
 
 #[derive(Debug)]
@@ -16,6 +18,7 @@ impl ExternalCommand {
 
 impl Command for ExternalCommand {
     fn run(&self, args: Vec<&str>, _: &CommandsRegistry) -> Result<(), String> {
+        dprintln!("spawning external command: {}", self.debug_print_message());
         let mut child = std::process::Command::new(&self.name)
             .args(args)
             .spawn()

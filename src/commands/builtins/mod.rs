@@ -1,4 +1,6 @@
+#[cfg(debug_assertions)]
 mod debug_only;
+#[cfg(debug_assertions)]
 pub use debug_only::*;
 
 mod cd;

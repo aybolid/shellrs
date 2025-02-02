@@ -1,6 +1,6 @@
 use std::io::Write;
 
-use crate::commands::CommandsRegistry;
+use crate::{commands::CommandsRegistry, dprintln};
 
 pub struct Shell {
     stdout: std::io::Stdout,
@@ -23,6 +23,7 @@ impl Shell {
 
     /// Runs the shell REPL (Read-Eval-Print-Loop).
     pub fn run_repl(&mut self) {
+        dprintln!("starting repl");
         loop {
             println!(
                 "\n\x1b[1;32m{}\x1b[0m", // bold, green
@@ -42,6 +43,8 @@ impl Shell {
 
     /// Evaluates the given input string.
     fn eval(&mut self, input: &str) -> Result<(), String> {
+        dprintln!("eval: {:?}", input);
+
         if input.trim().is_empty() {
             return Ok(());
         }
@@ -49,6 +52,9 @@ impl Shell {
         let tokens: Vec<&str> = input.split_whitespace().collect();
         let command_name = tokens[0];
         let args = &tokens[1..];
+
+        dprintln!("command name: {}", command_name);
+        dprintln!("args: {:?}", args);
 
         if let Some(command) = self.cmd_registry.get_command(command_name) {
             command.run(args.to_vec(), &self.cmd_registry)?;

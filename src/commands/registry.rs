@@ -2,10 +2,14 @@ use std::collections::HashMap;
 
 use is_executable::IsExecutable;
 
+use crate::dprintln;
+
 use super::{
-    CdCommand, Command, DebugPrintCommand, EchoCommand, ExitCommand, ExternalCommand, PwdCommand,
-    TypeCommand,
+    CdCommand, Command, EchoCommand, ExitCommand, ExternalCommand, PwdCommand, TypeCommand,
 };
+
+#[cfg(debug_assertions)]
+use super::DebugPrintCommand;
 
 pub struct CommandsRegistry {
     /// Registry of builtin commands.
@@ -36,11 +40,14 @@ impl CommandsRegistry {
     /// Panics if a command with the same name already exists.
     pub fn register_builtin(&mut self, command: Box<dyn Command>) {
         let name = command.get_name();
+
         assert!(
             !self.builtin.contains_key(&name),
             "duplicate builtin command: {}",
             name
         );
+        dprintln!("loading builtin command: {}", name,);
+
         self.builtin.insert(name, command);
     }
 
@@ -48,6 +55,11 @@ impl CommandsRegistry {
     pub fn register_external(&mut self) {
         if let Ok(paths) = std::env::var("PATH") {
             for dir in paths.split(':') {
+                dprintln!("loading external commands from {}", dir);
+
+                #[cfg(debug_assertions)]
+                let mut count: usize = 0;
+
                 if let Ok(entries) = std::fs::read_dir(dir) {
                     for entry in entries.flatten() {
                         let path = entry.path();
@@ -69,9 +81,20 @@ impl CommandsRegistry {
 
                         self.external
                             .insert(external_command.get_name(), Box::new(external_command));
+
+                        #[cfg(debug_assertions)]
+                        {
+                            count += 1;
+                        }
                     }
+                } else {
+                    dprintln!("failed to read external commands from {}", dir);
                 }
+
+                dprintln!("loaded {} external commands", count);
             }
+        } else {
+            dprintln!("PATH environment variable not set");
         }
     }
 }
@@ -88,7 +111,8 @@ impl Default for CommandsRegistry {
     fn default() -> Self {
         let mut registry = Self::new();
 
-        if cfg!(debug_assertions) {
+        #[cfg(debug_assertions)] // only available in debug builds
+        {
             register_builtins!(registry, DebugPrintCommand);
         }
 
