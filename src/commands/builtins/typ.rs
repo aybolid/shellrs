@@ -1,5 +1,6 @@
 use crate::commands::{Command, CommandsRegistry};
 
+#[derive(Debug)]
 pub struct TypeCommand;
 
 impl Command for TypeCommand {

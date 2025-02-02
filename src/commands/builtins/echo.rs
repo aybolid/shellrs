@@ -1,5 +1,6 @@
 use crate::commands::{Command, CommandsRegistry};
 
+#[derive(Debug)]
 pub struct EchoCommand;
 
 impl Command for EchoCommand {

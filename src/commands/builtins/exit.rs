@@ -1,5 +1,6 @@
 use crate::commands::{Command, CommandsRegistry};
 
+#[derive(Debug)]
 pub struct ExitCommand;
 
 impl Command for ExitCommand {

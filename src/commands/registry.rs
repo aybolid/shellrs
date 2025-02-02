@@ -2,10 +2,9 @@ use std::collections::HashMap;
 
 use is_executable::IsExecutable;
 
-use crate::commands::CdCommand;
-
 use super::{
-    AllCommand, Command, EchoCommand, ExitCommand, ExternalCommand, PwdCommand, TypeCommand,
+    CdCommand, Command, DebugPrintCommand, EchoCommand, ExitCommand, ExternalCommand, PwdCommand,
+    TypeCommand,
 };
 
 pub struct CommandsRegistry {
@@ -25,24 +24,6 @@ impl CommandsRegistry {
             builtin: HashMap::new(),
             external: HashMap::new(),
         }
-    }
-
-    /// Returns a tuple of two vectors containing the names of all registered builtin and external commands.
-    /// `(builtin_names, external_names)`
-    pub fn get_all_registered_names(&self) -> (Vec<String>, Vec<String>) {
-        let builtin_names = self
-            .builtin
-            .keys()
-            .map(|k| k.to_string())
-            .collect::<Vec<_>>();
-
-        let external_names = self
-            .external
-            .keys()
-            .map(|k| k.to_string())
-            .collect::<Vec<_>>();
-
-        (builtin_names, external_names)
     }
 
     /// Returns a reference to the `Command` with the given name if it exists.
@@ -103,15 +84,19 @@ macro_rules! register_builtins {
 
 impl Default for CommandsRegistry {
     /// Creates a new instance of the `CommandsRegistry` struct and loads builtin and external commands.
+    /// Some builtin commands are only available in debug builds.
     fn default() -> Self {
         let mut registry = Self::new();
+
+        if cfg!(debug_assertions) {
+            register_builtins!(registry, DebugPrintCommand);
+        }
 
         register_builtins!(
             registry,
             ExitCommand,
             EchoCommand,
             TypeCommand,
-            AllCommand,
             PwdCommand,
             CdCommand
         );
