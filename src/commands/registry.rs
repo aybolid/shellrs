@@ -123,8 +123,8 @@ macro_rules! register_debug_only_builtins {
     ($registry:expr) => {
         #[cfg(debug_assertions)]
         {
-            use super::DebugPrintCommand;
-            register_builtins!($registry, DebugPrintCommand);
+            use super::{BagagaCommand, DebugPrintCommand};
+            register_builtins!($registry, DebugPrintCommand, BagagaCommand);
             dprintln!("loaded debug-only builtin commands");
         }
     };

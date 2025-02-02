@@ -11,3 +11,4 @@ rust-version = "1.80"
 is_executable = "1.0.4"
 thiserror = "2.0.11"
 levenshtein = { path = "levenshtein" }
+rand = "0.9.0"
