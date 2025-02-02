@@ -16,6 +16,7 @@ pub struct CommandsRegistry {
     /// The key is the command name and the value is the command itself.
     external: HashMap<String, Box<dyn Command>>,
 
+    /// List of registered command names.
     pub registered_names: Vec<String>,
 }
 
@@ -26,6 +27,7 @@ impl CommandsRegistry {
         Self {
             builtin: HashMap::new(),
             external: HashMap::new(),
+
             registered_names: Vec::new(),
         }
     }
@@ -98,6 +100,8 @@ impl CommandsRegistry {
         }
     }
 
+    /// Populates the `registered_names` field of the `CommandsRegistry` struct.
+    /// Sorts the list of registered command names alphabetically.
     pub fn populate_registered_names(&mut self) {
         let mut names = Vec::new();
 
