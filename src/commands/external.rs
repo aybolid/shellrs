@@ -22,14 +22,19 @@ impl ExternalCommand {
 impl Command for ExternalCommand {
     fn run(
         &self,
-        _: &mut ShellOutput,
+        out: &mut ShellOutput,
         args: Vec<&str>,
         _: &CommandsRegistry,
     ) -> Result<(), ShellError> {
         dprintln!("spawning external command: {}", self.debug_print_message());
 
+        let stdout_stdio = out
+            .as_stdio()
+            .map_err(|err| ShellError::CommandExecutionFail(err.to_string()))?;
+
         let mut child = std::process::Command::new(&self.path)
             .args(args)
+            .stdout(stdout_stdio)
             .spawn()
             .map_err(|err| ShellError::CommandExecutionFail(err.to_string()))?;
 

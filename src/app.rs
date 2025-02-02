@@ -1,4 +1,4 @@
-use std::io::Write;
+use std::{io::Write, process::Stdio};
 
 use levenshtein::Levenshtein;
 use thiserror::Error;
@@ -32,6 +32,17 @@ impl ShellOutput {
     /// Writes a string to the output.
     pub fn writeln(&mut self, s: &str) {
         writeln!(self, "{}", s).expect("should be able to write");
+    }
+
+    /// Converts the `ShellOutput` into a `Stdio`.
+    pub fn as_stdio(&mut self) -> std::io::Result<Stdio> {
+        match self {
+            ShellOutput::File(ref mut file) => {
+                let file_clone = file.try_clone()?;
+                Ok(Stdio::from(file_clone))
+            }
+            ShellOutput::Stdout(_) => Ok(Stdio::inherit()),
+        }
     }
 }
 
