@@ -19,6 +19,8 @@ pub struct Shell {
     stdout: std::io::Stdout,
     stdin: std::io::Stdin,
 
+    input_buffer: String,
+
     /// Registry of all registered commands (builtin and external).
     cmd_registry: CommandsRegistry,
 }
@@ -30,11 +32,16 @@ impl Shell {
             stdout: std::io::stdout(),
             stdin: std::io::stdin(),
 
+            input_buffer: String::new(),
+
             cmd_registry: CommandsRegistry::default(),
         }
     }
 
     /// Runs the shell REPL (Read-Eval-Print-Loop).
+    ///
+    /// This version allows multiline input: if a line ends with an unescaped backslash,
+    /// the input will be continued on the next line.
     pub fn run_repl(&mut self) {
         dprintln!("starting repl");
         loop {
@@ -45,10 +52,9 @@ impl Shell {
             print!("> ");
             self.stdout.flush().unwrap();
 
-            let mut input_buffer = String::new();
-            self.stdin.read_line(&mut input_buffer).unwrap();
+            self.input_buffer = self.read_multiline_input();
 
-            if let Err(err) = self.eval(&input_buffer) {
+            if let Err(err) = self.eval() {
                 match err {
                     ShellError::EmptyInput => {
                         dprintln_err!("empty input error");
@@ -62,31 +68,61 @@ impl Shell {
                             2,
                         ) {
                             eprintln!("did you mean \"{}\"?", closest_name);
-                        };
+                        }
                     }
                     _ => eprintln!("{}", err),
                 }
             }
+
+            self.input_buffer.clear();
         }
     }
 
-    /// Evaluates the given input string.
-    fn eval(&mut self, input: &str) -> Result<(), ShellError> {
-        dprintln!("eval: {:?}", input);
+    /// Reads multiline input from the user. A line ending with an unescaped backslash (`\`)
+    /// indicates that the command continues on the next line.
+    fn read_multiline_input(&mut self) -> String {
+        let mut complete_input = String::new();
 
-        if input.trim().is_empty() {
+        loop {
+            let mut line = String::new();
+            self.stdin.read_line(&mut line).unwrap();
+
+            let line = line.trim_end_matches('\n').to_string();
+
+            if line.ends_with('\\') && !line.ends_with("\\\\") {
+                let line_without_bs = line.trim_end_matches('\\');
+                complete_input.push_str(line_without_bs);
+                complete_input.push(' ');
+
+                print!("> ");
+                self.stdout.flush().unwrap();
+            } else {
+                complete_input.push_str(&line);
+                break;
+            }
+        }
+        complete_input
+    }
+
+    /// Evaluates the given input string.
+    fn eval(&mut self) -> Result<(), ShellError> {
+        dprintln!("eval: {:?}", self.input_buffer);
+
+        let tokens = self.parse_shell_input();
+        dprintln!("parsed tokens: {:?}", tokens);
+
+        if tokens.is_empty() {
             return Err(ShellError::EmptyInput);
         }
 
-        let tokens: Vec<&str> = input.split_whitespace().collect();
-        let command_name = tokens[0];
-        let args = &tokens[1..];
+        let command_name = &tokens[0];
+        let args: Vec<&str> = tokens[1..].iter().map(|s| s.as_str()).collect();
 
         dprintln!("command name: {}", command_name);
         dprintln!("args: {:?}", args);
 
         if let Some(command) = self.cmd_registry.get_command(command_name) {
-            command.run(args.to_vec(), &self.cmd_registry)?;
+            command.run(args, &self.cmd_registry)?;
         } else {
             return Err(ShellError::CommandNotFound {
                 command_name: command_name.to_string(),
@@ -94,5 +130,65 @@ impl Shell {
         }
 
         Ok(())
+    }
+
+    /// Parse a shell-like input string into a vector of tokens.
+    ///
+    /// This function handles:
+    /// - Whitespace-separated tokens.
+    /// - Single (`'`) and double (`"`) quoted segments that allow spaces.
+    /// - Escaped characters via a backslash (`\`).
+    fn parse_shell_input(&self) -> Vec<String> {
+        let mut tokens = Vec::new();
+        let mut current = String::new();
+
+        // Flags to track whether we're inside single or double quotes.
+        let mut in_single_quote = false;
+        let mut in_double_quote = false;
+
+        let mut chars = self.input_buffer.chars().peekable();
+        while let Some(c) = chars.next() {
+            match c {
+                // toggle single-quote state (only when not inside double quotes)
+                '\'' if !in_double_quote => {
+                    in_single_quote = !in_single_quote;
+                }
+                // toggle double-quote state (only when not inside single quotes)
+                '"' if !in_single_quote => {
+                    in_double_quote = !in_double_quote;
+                }
+                // handle escape character: add the next character literally.
+                '\\' => {
+                    if let Some(escaped_char) = chars.next() {
+                        current.push(escaped_char);
+                    }
+                }
+                // if a space or tab is encountered outside quotes, finish the current token.
+                ' ' | '\t' if !in_single_quote && !in_double_quote => {
+                    if !current.is_empty() {
+                        tokens.push(current.clone());
+                        current.clear();
+                    }
+                    // skip any additional consecutive whitespaces.
+                    while let Some(&next_char) = chars.peek() {
+                        if next_char == ' ' || next_char == '\t' {
+                            chars.next();
+                        } else {
+                            break;
+                        }
+                    }
+                }
+                // all other characters are added to the current token.
+                _ => {
+                    current.push(c);
+                }
+            }
+        }
+
+        if !current.is_empty() {
+            tokens.push(current);
+        }
+
+        tokens
     }
 }
