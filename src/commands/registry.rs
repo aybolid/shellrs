@@ -8,9 +8,6 @@ use super::{
     CdCommand, Command, EchoCommand, ExitCommand, ExternalCommand, PwdCommand, TypeCommand,
 };
 
-#[cfg(debug_assertions)]
-use super::DebugPrintCommand;
-
 pub struct CommandsRegistry {
     /// Registry of builtin commands.
     /// The key is the command name and the value is the command itself.
@@ -107,6 +104,7 @@ impl CommandsRegistry {
         names.extend(self.builtin.keys().map(|k| k.to_string()));
         names.extend(self.external.keys().map(|k| k.to_string()));
 
+        names.sort();
         self.registered_names = names;
     }
 }
@@ -117,16 +115,24 @@ macro_rules! register_builtins {
     };
 }
 
+macro_rules! register_debug_only_builtins {
+    ($registry:expr) => {
+        #[cfg(debug_assertions)]
+        {
+            use super::DebugPrintCommand;
+            register_builtins!($registry, DebugPrintCommand);
+            dprintln!("loaded debug-only builtin commands");
+        }
+    };
+}
+
 impl Default for CommandsRegistry {
     /// Creates a new instance of the `CommandsRegistry` struct and loads builtin and external commands.
     /// Some builtin commands are only available in debug builds.
     fn default() -> Self {
         let mut registry = Self::new();
 
-        #[cfg(debug_assertions)] // only available in debug builds
-        {
-            register_builtins!(registry, DebugPrintCommand);
-        }
+        register_debug_only_builtins!(registry);
 
         register_builtins!(
             registry,
