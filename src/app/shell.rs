@@ -53,9 +53,10 @@ impl Shell {
             self.stdin.read_line(&mut line).unwrap();
             let line = line.trim_end_matches('\n');
 
+            // TODO: handle quotes and dquotes.
+
             if line.ends_with('\\') && !line.ends_with("\\\\") {
                 complete_input.push_str(line.trim_end_matches('\\'));
-                complete_input.push(' ');
             } else {
                 complete_input.push_str(line);
                 break;
@@ -216,7 +217,7 @@ impl Shell {
     /// Prints the shell header (current working directory in bold green) to the standard output.
     fn print_shell_header(&self) {
         if let Ok(path) = std::env::current_dir() {
-            println!("\n\x1b[1;32m{}\x1b[0m", path.display());
+            println!("  \x1b[1;32m{}\x1b[0m", path.display());
         }
     }
 
