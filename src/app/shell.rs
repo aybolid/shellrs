@@ -1,86 +1,15 @@
-use std::{
-    fs::File,
-    io::{self, Write},
-    process::Stdio,
-};
+use std::io::{self, Write};
 
 use levenshtein::Levenshtein;
-use thiserror::Error;
 
 use crate::{commands::CommandsRegistry, dprintln, dprintln_err};
 
-#[derive(Debug, Error)]
-pub enum ShellError {
-    /// The input was empty. Not really an error btw.
-    #[error("empty input")]
-    EmptyInput,
-    /// The command with the given name was not found.
-    /// This error will trigger a suggestion for the closest command name using Levenshtein distance.
-    #[error("{command_name}: command not found")]
-    CommandNotFound { command_name: String },
-    /// The command execution failed.
-    /// The message will be formatted as an error message (red color).
-    #[error("\x1b[31m{0}\x1b[0m")]
-    CommandExecutionFail(String),
-}
-
-/// The output type of the shell.
-/// Can be either a standard output, a standard error or a file.
-pub enum ShellOutput {
-    Stdout(io::StdoutLock<'static>),
-    Stderr(io::StderrLock<'static>),
-    #[allow(dead_code)]
-    File(File),
-}
-
-impl ShellOutput {
-    pub fn stdout() -> Self {
-        ShellOutput::Stdout(io::stdout().lock())
-    }
-
-    pub fn stderr() -> Self {
-        ShellOutput::Stderr(io::stderr().lock())
-    }
-
-    #[allow(dead_code)]
-    pub fn file(path: String) -> Self {
-        ShellOutput::File(File::create(path).unwrap())
-    }
-
-    /// Writes a string to the output.
-    pub fn writeln(&mut self, s: &str) {
-        writeln!(self, "{}", s).expect("should be able to write");
-    }
-
-    /// Converts the `ShellOutput` into a `Stdio`.
-    pub fn as_stdio(&mut self) -> io::Result<Stdio> {
-        match self {
-            ShellOutput::File(ref mut file) => Ok(Stdio::from(file.try_clone()?)),
-            ShellOutput::Stdout(_) | ShellOutput::Stderr(_) => Ok(Stdio::inherit()),
-        }
-    }
-}
-
-impl io::Write for ShellOutput {
-    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
-        match self {
-            ShellOutput::Stdout(ref mut writer) => writer.write(buf),
-            ShellOutput::Stderr(ref mut writer) => writer.write(buf),
-            ShellOutput::File(ref mut writer) => writer.write(buf),
-        }
-    }
-
-    fn flush(&mut self) -> io::Result<()> {
-        match self {
-            ShellOutput::Stdout(ref mut writer) => writer.flush(),
-            ShellOutput::Stderr(ref mut writer) => writer.flush(),
-            ShellOutput::File(ref mut writer) => writer.flush(),
-        }
-    }
-}
+use super::{ShellError, ShellOutput};
 
 pub struct Shell {
+    /// The standard output of the shell.
     pub stdout: ShellOutput,
+    /// The standard error output of the shell.
     pub stderr: ShellOutput,
     /// Registry of all registered commands (builtin and external).
     pub cmd_registry: CommandsRegistry,
@@ -101,9 +30,6 @@ impl Shell {
     }
 
     /// Runs the shell REPL (Read-Eval-Print-Loop).
-    ///
-    /// This version allows multiline input: if a line ends with an unescaped backslash,
-    /// the input will be continued on the next line.
     pub fn run_repl(&mut self) {
         dprintln!("starting repl");
         loop {
@@ -115,8 +41,6 @@ impl Shell {
     }
 
     /// Reads multiline input from the user.
-    ///
-    /// A line ending with an unescaped backslash (`\`) indicates that the command continues on the next line.
     fn read_multiline_input(&mut self) -> String {
         self.print_shell_header();
         let mut complete_input = String::new();
@@ -213,7 +137,7 @@ impl Shell {
             match token.as_str() {
                 "&>" => {
                     let file = iter.next().ok_or_else(|| {
-                        ShellError::CommandExecutionFail(
+                        ShellError::ParsingFail(
                             "no file specified for output redirection".to_string(),
                         )
                     })?;
@@ -222,14 +146,14 @@ impl Shell {
                 }
                 ">" | "1>" => {
                     stdout_redirect = Some(iter.next().ok_or_else(|| {
-                        ShellError::CommandExecutionFail(
+                        ShellError::ParsingFail(
                             "no file specified for output redirection".to_string(),
                         )
                     })?);
                 }
                 "2>" => {
                     stderr_redirect = Some(iter.next().ok_or_else(|| {
-                        ShellError::CommandExecutionFail(
+                        ShellError::ParsingFail(
                             "no file specified for error output redirection".to_string(),
                         )
                     })?);
@@ -242,8 +166,6 @@ impl Shell {
     }
 
     /// Parses the shell input into tokens.
-    ///
-    /// Supports whitespace separation, quoting (single and double), and escaping.
     fn parse_shell_input(&self) -> Vec<String> {
         let mut tokens = Vec::new();
         let mut current = String::new();
@@ -291,7 +213,7 @@ impl Shell {
         tokens
     }
 
-    /// Prints the shell header (current working directory in bold green).
+    /// Prints the shell header (current working directory in bold green) to the standard output.
     fn print_shell_header(&self) {
         if let Ok(path) = std::env::current_dir() {
             println!("\n\x1b[1;32m{}\x1b[0m", path.display());
