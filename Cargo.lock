@@ -115,6 +115,7 @@ version = "0.1.0"
 dependencies = [
  "is_executable",
  "levenshtein",
+ "libc",
  "rand",
  "thiserror",
 ]
