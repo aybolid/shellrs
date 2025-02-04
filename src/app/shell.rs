@@ -1,12 +1,8 @@
-use std::fs::File;
-use std::io::{self, Read, Write};
-use std::os::unix::io::AsRawFd;
-
-use libc::{tcgetattr, tcsetattr, termios, ECHO, ICANON, TCSANOW};
+use std::io::{self, Write};
 
 use levenshtein::Levenshtein;
 
-use super::{ShellError, ShellOutput};
+use super::{InputHandler, ShellError, ShellOutput};
 use crate::{commands::CommandsRegistry, dprintln, dprintln_err};
 
 pub struct Shell {
@@ -18,21 +14,18 @@ pub struct Shell {
     pub cmd_registry: CommandsRegistry,
     /// Buffer for storing user input.
     input_buffer: String,
-    /// The TTY file handle used for reading raw input.
-    tty: File,
+    input_handler: InputHandler,
 }
 
 impl Shell {
     /// Creates a new instance of the `Shell` struct.
     pub fn new() -> Self {
-        let tty = File::open("/dev/tty").unwrap();
-
         Self {
             stdout: ShellOutput::stdout(),
             stderr: ShellOutput::stderr(),
             cmd_registry: CommandsRegistry::default(),
             input_buffer: String::new(),
-            tty,
+            input_handler: InputHandler::new(),
         }
     }
 
@@ -40,7 +33,7 @@ impl Shell {
     pub fn run_repl(&mut self) {
         dprintln!("starting repl");
         loop {
-            self.input_buffer = self.handle_input();
+            self.handle_input();
             if let Err(err) = self.eval() {
                 self.handle_eval_error(err);
             }
@@ -48,127 +41,16 @@ impl Shell {
         }
     }
 
-    /// Handles user input by putting the TTY into raw mode, reading key-by-key,
-    /// and then restoring the original terminal settings.
-    fn handle_input(&mut self) -> String {
-        let fd = self.tty.as_raw_fd();
-
-        // save the original terminal settings.
-        let original_termios = Self::get_termios(fd).unwrap();
-
-        // set terminal to raw mode (disable canonical mode and echo).
-        let raw_termios = Self::disable_canonical_echo(original_termios);
-        Self::set_termios(fd, &raw_termios).unwrap();
-
+    /// Handles user input
+    fn handle_input(&mut self) {
         let prompt = "> ";
-        let mut buffer = String::new();
-        let mut cursor_pos = 0;
 
         self.print_shell_header();
         print!("{}", prompt);
         io::stdout().flush().unwrap();
 
-        let redraw_line = |buffer: &str, cursor_pos: usize| {
-            // \r returns to the beginning of the line; \x1b[K clears the line from the cursor onward.
-            print!("\r{}{}\x1b[K", prompt, buffer);
-
-            let cursor_col = prompt.len() + cursor_pos + 1;
-
-            // move the cursor to the correct position.
-            print!("\r\x1b[{}G", cursor_col);
-
-            io::stdout().flush().unwrap();
-        };
-
-        loop {
-            let mut byte = [0u8; 1];
-            if self.tty.read(&mut byte).unwrap() == 0 {
-                break;
-            }
-            let b = byte[0];
-
-            match b {
-                b'\n' | b'\r' => {
-                    println!();
-                    break;
-                }
-                0x1B => {
-                    // possibly an escape sequence.
-                    let mut seq = [0u8; 2];
-                    if self.tty.read(&mut seq).unwrap() < 2 {
-                        continue;
-                    }
-                    if seq[0] == b'[' {
-                        match seq[1] {
-                            b'D' => {
-                                // left arrow: move cursor left.
-                                if cursor_pos > 0 {
-                                    cursor_pos -= 1;
-                                }
-                            }
-                            b'C' => {
-                                // right arrow: move cursor right.
-                                if cursor_pos < buffer.len() {
-                                    cursor_pos += 1;
-                                }
-                            }
-                            _ => {}
-                        }
-                    }
-                }
-                127 | 8 => {
-                    // handle backspace.
-                    if cursor_pos > 0 {
-                        buffer.remove(cursor_pos - 1);
-                        cursor_pos -= 1;
-                    }
-                }
-                0x04 => break, // Ctrl-D (EOF).
-                _ if b.is_ascii() && !b.is_ascii_control() => {
-                    // insert printable character.
-                    let ch = b as char;
-                    buffer.insert(cursor_pos, ch);
-                    cursor_pos += 1;
-                }
-                _ => {}
-            }
-
-            redraw_line(&buffer, cursor_pos);
-        }
-
-        // restore the original terminal settings.
-        Self::set_termios(fd, &original_termios).expect("failed to restore terminal settings");
-
-        buffer
-    }
-
-    /// Helper function to get terminal attributes.
-    fn get_termios(fd: i32) -> io::Result<termios> {
-        unsafe {
-            let mut term = std::mem::zeroed::<termios>();
-            if tcgetattr(fd, &mut term) != 0 {
-                Err(io::Error::last_os_error())
-            } else {
-                Ok(term)
-            }
-        }
-    }
-
-    /// Helper function to set terminal attributes.
-    fn set_termios(fd: i32, term: &termios) -> io::Result<()> {
-        unsafe {
-            if tcsetattr(fd, TCSANOW, term) != 0 {
-                Err(io::Error::last_os_error())
-            } else {
-                Ok(())
-            }
-        }
-    }
-
-    /// Returns a modified termios with canonical mode and echo disabled.
-    fn disable_canonical_echo(mut term: termios) -> termios {
-        term.c_lflag &= !(ICANON | ECHO);
-        term
+        self.input_handler
+            .input_loop(&mut self.input_buffer, prompt);
     }
 
     /// Evaluates the current input stored in `self.input_buffer`.
