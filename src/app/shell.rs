@@ -25,7 +25,7 @@ pub struct Shell {
 impl Shell {
     /// Creates a new instance of the `Shell` struct.
     pub fn new() -> Self {
-        let tty = File::open("/dev/tty").expect("failed to open /dev/tty");
+        let tty = File::open("/dev/tty").unwrap();
 
         Self {
             stdout: ShellOutput::stdout(),
@@ -71,9 +71,12 @@ impl Shell {
         let redraw_line = |buffer: &str, cursor_pos: usize| {
             // \r returns to the beginning of the line; \x1b[K clears the line from the cursor onward.
             print!("\r{}{}\x1b[K", prompt, buffer);
-            // move the cursor to the correct position.
+
             let cursor_col = prompt.len() + cursor_pos + 1;
+
+            // move the cursor to the correct position.
             print!("\r\x1b[{}G", cursor_col);
+
             io::stdout().flush().unwrap();
         };
 
@@ -222,11 +225,6 @@ impl Shell {
     }
 
     /// Processes tokens to separate redirection tokens from command tokens.
-    ///
-    /// Returns a tuple of:
-    /// - command tokens,
-    /// - optional stdout redirection file,
-    /// - optional stderr redirection file.
     fn process_redirections(
         &self,
         tokens: Vec<String>,
@@ -323,7 +321,13 @@ impl Shell {
             ShellError::CommandNotFound { command_name } => {
                 self.stderr
                     .writeln(&format!("{}: command not found", command_name));
+
+                if command_name.len() <= 2 {
+                    return;
+                }
+
                 let levenshtein_threshold = if command_name.len() < 4 { 1 } else { 2 };
+
                 if let Some(closest) = Levenshtein::get_closest_with_threshold(
                     &command_name,
                     &self.cmd_registry.registered_names,
